@@ -1,0 +1,3 @@
+[submodule "tools/pi-mono"]
+	path = tools/pi-mono
+	url = https://github.com/badlogic/pi-mono.git

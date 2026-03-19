@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "py-twins"
+version = "0.1.0"
+description = "Python refactor baseline for py-twins"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "py-twins" }]
+dependencies = []
+
+[project.scripts]
+py-twins = "cli:main"
+pi-mono-py = "cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+py-modules = ["cli"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"pods" = ["models.json", "scripts/*.sh"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
