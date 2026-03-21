@@ -2606,7 +2606,7 @@ ${this.content||""}</pre
         <header class="app-header">
           <div class="app-title">
             <h1>py-twins web-ui</h1>
-            <p>upstream <code>tools/pi-mono/packages/web-ui</code> connected to the local Python engine</p>
+            <p>bundled web-ui connected to the local Python engine</p>
             <div class="status-row">
               <span class="status-pill ${fx}">${fx}</span>
               <span class="status-pill">session ${n}</span>

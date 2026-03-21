@@ -1,6 +1,6 @@
-# pi-mono 功能文档总索引
+# 功能文档总索引
 
-说明：该索引面向“功能复现”，优先收录 `README.md` 与 `packages/*/docs/*.md` 中直接描述能力、配置、协议、交互的文档（不含 changelog/测试夹具）。
+说明：该索引用于整理当前项目所参考的功能文档与主题范围，优先收录直接描述能力、配置、协议和交互方式的文档。
 
 附：`py-twins` 本地一致性检查说明见 `docs/03_core_parity_check.md`。
 
@@ -8,7 +8,7 @@
 
 | 路径 | 主题 |
 |---|---|
-| `README.md` | monorepo 总览与包清单 |
+| `README.md` | 项目总览与使用方式 |
 
 ## packages/ai
 
@@ -50,31 +50,6 @@
 | `packages/coding-agent/docs/shell-aliases.md` | shell alias 集成 |
 | `packages/coding-agent/docs/windows.md` | Windows 平台适配 |
 | `packages/coding-agent/docs/termux.md` | Termux 平台适配 |
-
-## packages/mom
-
-| 路径 | 主题 |
-|---|---|
-| `packages/mom/README.md` | Slack Bot 主流程、数据目录、记忆与技能、事件调度、安全模型 |
-| `packages/mom/docs/slack-bot-minimal-guide.md` | 最小化 Slack 接入 |
-| `packages/mom/docs/sandbox.md` | Docker/Host 沙箱语义 |
-| `packages/mom/docs/events.md` | 事件文件协议与定时唤醒 |
-| `packages/mom/docs/artifacts-server.md` | Artifacts 服务 |
-| `packages/mom/docs/new.md` | 多平台重构设计说明 |
-| `packages/mom/docs/v86.md` | v86 沙箱评估 |
-
-## packages/pods
-
-| 路径 | 主题 |
-|---|---|
-| `packages/pods/README.md` | GPU Pod 部署管理、vLLM 启停、模型配置、agent 测试入口 |
-| `packages/pods/docs/models.md` | 预置模型配置清单 |
-| `packages/pods/docs/qwen3-coder.md` | Qwen3-Coder 部署实践 |
-| `packages/pods/docs/gml-4.5.md` | GLM-4.5 部署说明 |
-| `packages/pods/docs/gpt-oss.md` | GPT-OSS 运行建议 |
-| `packages/pods/docs/kimi-k2.md` | Kimi-K2 部署指南 |
-| `packages/pods/docs/plan.md` | pods 规划草案 |
-| `packages/pods/docs/implementation-plan.md` | pods 实施计划草案 |
 
 ## packages/tui
 

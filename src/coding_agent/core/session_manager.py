@@ -8,6 +8,7 @@ from typing import Any
 from uuid import uuid4
 
 from .messages import create_branch_summary_message, create_compaction_summary_message, create_custom_message
+from .workspace import resolve_session_dir
 
 CURRENT_SESSION_VERSION = 3
 
@@ -449,8 +450,7 @@ class SessionManager:
 
     @staticmethod
     def _default_session_dir(cwd: str) -> str:
-        safe = "--" + cwd.lstrip("/").replace("/", "-").replace("\\", "-").replace(":", "-") + "--"
-        root = Path.home() / ".pi" / "agent" / "sessions" / safe
+        root = Path(resolve_session_dir(cwd))
         root.mkdir(parents=True, exist_ok=True)
         return str(root)
 

@@ -1,15 +1,13 @@
-# Python 重构功能矩阵与阶段计划
+# 功能矩阵与阶段计划
 
 ## 目标
 
-在 Python 中逐步复现 `pi-mono` 的核心能力，最终覆盖：
+围绕当前项目的本地编码主链路逐步完善核心能力，最终覆盖：
 
 1. 多 Provider LLM 统一层（`ai`）
 2. Agent 状态机与工具循环（`agent`）
 3. 交互式 coding CLI（`coding-agent`）
-4. Slack Bot 与事件系统（`mom`）
-5. GPU pod 管理与 vLLM 编排（`pods`）
-6. TUI/Web UI（`tui` + `web-ui`，后续阶段）
+4. TUI/Web UI（`tui` + `web-ui`，后续阶段）
 
 ## 功能映射（当前状态）
 
@@ -23,8 +21,6 @@
 | LLM Provider Layer | OpenAI/Anthropic/Google 等统一接口 | Stage 3 增强（OpenAI/Anthropic + retry） |
 | Extensions/Skills | 插件、技能装载、资源发现 | Stage 3 已落地扩展运行器、本地 extension loader、skills discovery、settings/resource loader、prompt templates、slash commands、system prompt 组装 |
 | RPC/JSON Mode | 进程协议与机器可读输出 | Stage 3 已落地 `coding_agent` print/json/rpc 最小链路 |
-| Mom Slack Runtime | Slack 事件接入、数据目录、事件调度 | Stage 3 已落地 workspace/store/context/events/sandbox/tools/runner、本地 Slack 适配、`main` 编排、`download` 历史导出、message/backfill 语义 |
-| Pods | 远程 Pod 管理、模型生命周期 | Stage 3 已落地配置/模型匹配/SSH/命令编排基础，远程运行细节待增强 |
 | TUI Core | 终端抽象、输入缓冲、差分渲染、基础组件 | Stage 3 已落地 fuzzy/stdin-buffer/utils/terminal/minimal TUI foundation，以及 keys/keybindings/autocomplete/kill-ring/undo-stack/basic + interactive components + markdown + editor skeleton |
 
 ## 分阶段实施
@@ -42,7 +38,7 @@
 - 引入 `coding_agent.session_manager`（JSONL 树结构 + context 构建）
 - 引入 `coding_agent.agent_session/sdk`（Agent 与 Session 生命周期打通）
 - 引入 `ai`（模型/消息抽象 + 脚本后端）
-- 增加 `parity-check` 命令执行核心模块对齐检查
+- 增加 `parity-check` 命令执行核心模块检查
 
 ### Stage 3（进行中）
 
@@ -59,18 +55,11 @@
 - `coding_agent` 运行入口初版已落地：`args`、`main`、`print/json/rpc mode`、根 CLI `coding-agent`
 - `coding_agent` CLI 辅助能力已增强：`--list-models`、文本式 `--resume`、`--export`
 - `coding_agent` package manager 初版已落地：本地 source 的 `install/remove/update/list/config`
-- `coding_agent` 目录结构已按 `pi-mono` 重构为 `cli/core/modes`，原独立 `core` 目录已移除并并入 `coding_agent/core/tools`
+- `coding_agent` 目录结构已整理为 `cli/core/modes`，原独立 `core` 目录已移除并并入 `coding_agent/core/tools`
 - Python 模块目录已整体平铺到 `src/*`
 - `coding_agent` 命令层初版已落地：slash command dispatcher、`session/name/new/resume/reload/export/model/compact`
 - `coding_agent` 扩展/认证层增强已落地：extension command execution、`auth_storage`、`login/logout`
 - `coding_agent` 分享/导出层增强已落地：`share` bundle、增强版 `export-html`、RPC `share_session`
-- `pods` 核心基础已落地：配置读写、active pod 切换、内置模型配置匹配、SSH/SCP 命令构造
-- `pods` 命令层初版已落地：`setup/start/stop/models/logs/prompt-args`
-- `mom` 基础运行时已落地：workspace 路径、channel store、log/context 同步、事件调度
-- `mom` 工具与 runner 基础已落地：sandbox executor、`read/write/edit/bash/attach`、LLM runner 骨架
-- `mom` Slack/main 初版已落地：本地 SlackBot 适配、状态消息、stop 流程、包级/根 CLI 入口
-- `mom` download 初版已落地：Slack history/thread 导出与 `--download` 入口
-- `mom` message/backfill 初版已落地：app mention/DM 过滤、startup 旧消息仅记录不触发、增量 backfill
 - `tui` 基础层已落地：fuzzy match、stdin buffer、ANSI 宽度/截断工具、memory terminal、最小 `TUI/Container`
 - `tui` 编辑状态层已落地：keys、keybindings、autocomplete、kill ring、undo stack
 - `tui` 基础组件已落地：`Text`、`Spacer`、`Box`、`TruncatedText`、`Loader`、`CancellableLoader`
@@ -87,6 +76,5 @@
 
 ### Stage 5
 
-- `mom` 与 `pods` 对齐实现
 - 安全策略、权限隔离、部署脚本
 - 回归测试与兼容性收敛

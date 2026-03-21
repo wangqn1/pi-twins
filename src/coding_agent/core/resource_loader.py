@@ -10,6 +10,7 @@ from .package_manager import DefaultPackageManager
 from .prompt_templates import PromptTemplate, load_prompt_templates
 from .settings_manager import SettingsManager
 from .skills import Skill, load_skills
+from .workspace import resolve_workspace_dir
 
 CONFIG_DIR_NAME = ".pi"
 
@@ -40,7 +41,7 @@ class DefaultResourceLoader:
     def __init__(self, options: DefaultResourceLoaderOptions | None = None) -> None:
         opts = options or DefaultResourceLoaderOptions()
         self.cwd = opts.cwd or Path.cwd().as_posix()
-        self.agent_dir = opts.agent_dir or _get_agent_dir()
+        self.agent_dir = opts.agent_dir or resolve_workspace_dir(self.cwd)
         self.settings_manager = opts.settings_manager or SettingsManager.create(self.cwd, self.agent_dir)
         self.additional_extension_paths = list(opts.additional_extension_paths or [])
         self.additional_skill_paths = list(opts.additional_skill_paths or [])
@@ -206,8 +207,3 @@ def _load_context_file_from_dir(path: Path) -> dict[str, str] | None:
             except OSError:
                 continue
     return None
-
-
-def _get_agent_dir() -> str:
-    base = Path(os.environ.get("PI_CONFIG_DIR") or (Path.home() / ".pi"))
-    return (base / "agent").as_posix()

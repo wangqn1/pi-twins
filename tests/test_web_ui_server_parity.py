@@ -247,3 +247,18 @@ def test_web_ui_bridge_starts_fresh_by_default_without_resuming_recent_session(t
 
     assert second.get_state()["messages"] == []
     assert second.get_state()["sessionId"] != first.get_state()["sessionId"]
+
+
+def test_web_ui_bridge_defaults_to_project_workspace(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    backend = WebUiBridgeBackend(
+        WebUiBridgeConfig(
+            cwd=workspace.as_posix(),
+            with_tools=False,
+        )
+    )
+
+    assert backend.session.settings_manager.agent_dir == (workspace / ".pi").as_posix()
+    assert backend.session.session_manager.get_session_dir() == (workspace / ".pi" / "sessions").as_posix()

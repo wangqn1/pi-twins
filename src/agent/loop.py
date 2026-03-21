@@ -3,7 +3,7 @@ from __future__ import annotations
 from time import time
 from typing import Any, Callable
 
-from ai import AssistantMessage, LLMContext, ToolResultMessage, text_block
+from ai import AssistantMessage, LLMContext, ToolResultMessage, UserMessage, text_block
 
 from .types import (
     AbortSignal,
@@ -91,6 +91,8 @@ def _run_loop(
 ) -> None:
     pending_messages = config.get_steering_messages() if config.get_steering_messages else []
     first = first_turn
+    turn_count = 0
+    tool_call_count = 0
 
     while True:
         _throw_if_aborted(signal)
@@ -99,6 +101,19 @@ def _run_loop(
 
         while has_more_tool_calls or pending_messages:
             _throw_if_aborted(signal)
+            if config.max_turns is not None and turn_count >= config.max_turns:
+                limit_message = _emit_limit_checkpoint(
+                    current_context,
+                    new_messages,
+                    config,
+                    emit,
+                    signal,
+                    reason=f"Reached the maximum turn limit ({config.max_turns}).",
+                    turn_count=turn_count,
+                    tool_call_count=tool_call_count,
+                )
+                emit({"type": "turn_end", "message": limit_message, "toolResults": []})
+                return
             if first:
                 first = False
             else:
@@ -114,6 +129,7 @@ def _run_loop(
 
             assistant = _stream_once(current_context, config, emit, signal)
             new_messages.append(assistant)
+            turn_count += 1
 
             if assistant.stop_reason in ("error", "aborted"):
                 emit({"type": "turn_end", "message": assistant, "toolResults": []})
@@ -132,14 +148,34 @@ def _run_loop(
                     signal,
                     current_context,
                     config,
+                    remaining_tool_calls=None if config.max_tool_calls is None else max(config.max_tool_calls - tool_call_count, 0),
                 )
                 tool_results.extend(execution["tool_results"])
+                tool_context_messages = execution.get("tool_context_messages", [])
                 steering_after_tools = execution.get("steering_messages")
+                tool_call_count += int(execution.get("executed_tool_calls", 0))
                 for result in tool_results:
                     current_context.messages.append(result)
                     new_messages.append(result)
+                for message in tool_context_messages:
+                    current_context.messages.append(message)
+                    new_messages.append(message)
 
             emit({"type": "turn_end", "message": assistant, "toolResults": tool_results})
+
+            if bool(execution.get("limit_reached")) if has_more_tool_calls else False:
+                limit_message = _emit_limit_checkpoint(
+                    current_context,
+                    new_messages,
+                    config,
+                    emit,
+                    signal,
+                    reason=f"Reached the maximum tool call limit ({config.max_tool_calls}).",
+                    turn_count=turn_count,
+                    tool_call_count=tool_call_count,
+                )
+                emit({"type": "turn_end", "message": limit_message, "toolResults": []})
+                return
 
             if steering_after_tools:
                 pending_messages = steering_after_tools
@@ -239,13 +275,20 @@ def _execute_tool_calls(
     signal: AbortSignal | None,
     current_context: AgentContext,
     config: AgentLoopConfig,
+    remaining_tool_calls: int | None = None,
 ) -> dict[str, list[Any]]:
     tool_calls = [block for block in assistant_message.content if block.get("type") == "toolCall"]
     results: list[ToolResultMessage] = []
+    tool_context_messages: list[UserMessage] = []
     steering_messages: list[AgentMessage] | None = None
+    executed_tool_calls = 0
+    limit_reached = False
 
     for index, tool_call in enumerate(tool_calls):
         _throw_if_aborted(signal)
+        if remaining_tool_calls is not None and executed_tool_calls >= remaining_tool_calls:
+            limit_reached = True
+            break
         tool_call_id = str(tool_call.get("id", f"call-{index}"))
         tool_name = str(tool_call.get("name", ""))
         arguments = tool_call.get("arguments", {})
@@ -332,6 +375,14 @@ def _execute_tool_calls(
         emit({"type": "message_start", "message": message})
         emit({"type": "message_end", "message": message})
 
+        multimodal_context_message = None
+        if _should_inject_multimodal_tool_context(config):
+            multimodal_context_message = _build_multimodal_tool_context_message(tool_name, tool_result)
+        if multimodal_context_message is not None:
+            tool_context_messages.append(multimodal_context_message)
+            emit({"type": "message_start", "message": multimodal_context_message})
+            emit({"type": "message_end", "message": multimodal_context_message})
+
         if get_steering_messages is not None:
             steering = get_steering_messages()
             if steering:
@@ -340,8 +391,14 @@ def _execute_tool_calls(
                 for skipped in remaining:
                     results.append(_skip_tool_call(skipped, emit))
                 break
+        executed_tool_calls += 1
 
-    output = {"tool_results": results}
+    output = {
+        "tool_results": results,
+        "tool_context_messages": tool_context_messages,
+        "executed_tool_calls": executed_tool_calls,
+        "limit_reached": limit_reached,
+    }
     if steering_messages:
         output["steering_messages"] = steering_messages
     return output
@@ -424,6 +481,82 @@ def _matches_schema_type(value: Any, expected_type: Any) -> bool:
     if expected_type == "array":
         return isinstance(value, list)
     return True
+
+
+def _build_multimodal_tool_context_message(tool_name: str, tool_result: AgentToolResult) -> UserMessage | None:
+    images: list[dict[str, Any]] = []
+    text_lines: list[str] = []
+
+    for block in tool_result.content:
+        if not isinstance(block, dict):
+            continue
+        block_type = block.get("type")
+        if block_type == "image":
+            data = block.get("data")
+            if data:
+                images.append(
+                    {
+                        "type": "image",
+                        "data": str(data),
+                        "mimeType": str(block.get("mimeType") or block.get("mime_type") or "image/png"),
+                    }
+                )
+        elif block_type == "text":
+            text = str(block.get("text", "")).strip()
+            if text:
+                text_lines.append(text)
+
+    if not images:
+        return None
+
+    details = tool_result.details if isinstance(tool_result.details, dict) else {}
+    path = details.get("path") if isinstance(details, dict) else None
+    note = f"Tool `{tool_name}` produced image content. Use it as multimodal context for the next response."
+    if isinstance(path, str) and path:
+        note += f"\nImage path: {path}"
+    if text_lines:
+        note += "\n" + "\n".join(text_lines)
+
+    return UserMessage(content=[text_block(note), *images], timestamp=int(time() * 1000))
+
+
+def _should_inject_multimodal_tool_context(config: AgentLoopConfig) -> bool:
+    return config.model.api not in {"anthropic-messages"}
+
+
+def _emit_limit_checkpoint(
+    current_context: AgentContext,
+    new_messages: list[AgentMessage],
+    config: AgentLoopConfig,
+    emit: Callable[[AgentEvent], None],
+    signal: AbortSignal | None,
+    *,
+    reason: str,
+    turn_count: int,
+    tool_call_count: int,
+) -> AssistantMessage:
+    emit({"type": "turn_start"})
+    checkpoint_prompt = UserMessage(
+        content=[
+            text_block(
+                f"{reason}\n"
+                f"Turns completed: {turn_count}\n"
+                f"Tool calls executed: {tool_call_count}\n"
+                "Briefly summarize the current progress, mention the limit that was reached, and ask the user whether to continue. "
+                "Do not call tools."
+            )
+        ],
+        timestamp=int(time() * 1000),
+    )
+    checkpoint_context = AgentContext(
+        system_prompt=current_context.system_prompt,
+        messages=[*current_context.messages, checkpoint_prompt],
+        tools=[],
+    )
+    assistant = _stream_once(checkpoint_context, config, emit, signal)
+    current_context.messages.append(assistant)
+    new_messages.append(assistant)
+    return assistant
 
 
 def _throw_if_aborted(signal: AbortSignal | None) -> None:

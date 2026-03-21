@@ -9,15 +9,11 @@ from typing import Any
 from agent import Agent
 from coding_agent.core.tools import ToolExecutionError, ToolRegistry, create_coding_tools
 from coding_agent.main import coding_agent_main
-from mom import mom_main
-from pods import pods_main
 from web_ui import web_ui_main
 
-PACKAGE_NAMES = ("ai", "agent", "coding_agent", "mom", "pods", "tui", "web_ui")
+PACKAGE_NAMES = ("ai", "agent", "coding_agent", "tui", "web_ui")
 MODULE_ENTRYPOINTS = {
     "coding-agent": coding_agent_main,
-    "pods": pods_main,
-    "mom": mom_main,
     "web-ui": web_ui_main,
 }
 CORE_CHECKS = {
@@ -54,25 +50,24 @@ CORE_CHECKS = {
         "core/agent_session.py",
         "core/compaction.py",
         "core/sdk.py",
+        "core/workspace.py",
         "modes/print_mode.py",
         "modes/interactive/interactive_mode.py",
         "modes/rpc/rpc_mode.py",
     ],
-    "mom": ["__init__.py"],
-    "pods": ["__init__.py"],
     "tui": ["__init__.py"],
     "web_ui": ["__init__.py"],
 }
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="pi-mono-py", description="Python refactor baseline for pi-mono")
+    parser = argparse.ArgumentParser(prog="py-twins", description="Local AI coding tools, agent sessions, and web UI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("list-tools", help="List all available tools")
     subparsers.add_parser("list-packages", help="List package-aligned modules")
     subparsers.add_parser("docs-index", help="Show feature documents index path")
-    subparsers.add_parser("parity-check", help="Check core parity against tools/pi-mono/packages")
+    subparsers.add_parser("parity-check", help="Check core modules and built-in tools")
 
     tool_parser = subparsers.add_parser("tool", help="Run a tool with JSON input")
     tool_parser.add_argument("name", help="Tool name")
@@ -84,9 +79,7 @@ def _build_parser() -> argparse.ArgumentParser:
     agent_parser.add_argument("--cwd", default=Path.cwd().as_posix(), help="Working directory")
 
     subparsers.add_parser("coding-agent", help="Run coding-agent text/json/rpc modes")
-    subparsers.add_parser("pods", help="Manage GPU pods and model deployments")
-    subparsers.add_parser("mom", help="Run mom Slack runtime")
-    subparsers.add_parser("web-ui", help="Serve upstream pi-web-ui against the local Python engine")
+    subparsers.add_parser("web-ui", help="Serve the browser UI against the local Python engine")
 
     return parser
 
@@ -122,22 +115,12 @@ def _run_docs_index() -> int:
 
 def _run_parity_check() -> int:
     root = Path(__file__).resolve().parents[1]
-    mono_packages_dir = root / "tools" / "pi-mono" / "packages"
     twin_packages_dir = root / "src"
-
-    mono_packages = sorted(path.name for path in mono_packages_dir.iterdir() if path.is_dir())
     twin_packages = sorted(
         path.name
         for path in twin_packages_dir.iterdir()
         if path.is_dir() and not path.name.startswith("__") and path.name in PACKAGE_NAMES
     )
-
-    normalized_mono = {name.replace("-", "_"): name for name in mono_packages}
-    normalized_twin = {name.replace("-", "_"): name for name in twin_packages}
-    missing_normalized = sorted(set(normalized_mono) - set(normalized_twin))
-    extra_normalized = sorted(set(normalized_twin) - set(normalized_mono))
-    missing_in_twin = [normalized_mono[name] for name in missing_normalized]
-    extra_in_twin = [normalized_twin[name] for name in extra_normalized]
 
     files_missing: dict[str, list[str]] = {}
     for package_name, required_files in CORE_CHECKS.items():
@@ -152,11 +135,8 @@ def _run_parity_check() -> int:
     tools_extra = sorted(tools_actual - tools_expected)
 
     report = {
-        "ok": not missing_in_twin and not files_missing and not tools_missing,
-        "monoPackages": mono_packages,
+        "ok": not files_missing and not tools_missing,
         "twinPackages": twin_packages,
-        "missingPackagesInTwin": missing_in_twin,
-        "extraPackagesInTwin": extra_in_twin,
         "missingCoreFiles": files_missing,
         "toolParity": {
             "expected": sorted(tools_expected),

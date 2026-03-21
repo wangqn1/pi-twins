@@ -1,4 +1,5 @@
 from __future__ import annotations
+from web_ui.example_app import WebUiExampleConfig, WebUiStyleExampleApp
 
 import argparse
 import json
@@ -10,11 +11,10 @@ SRC = ROOT / "src"
 if SRC.as_posix() not in sys.path:
     sys.path.insert(0, SRC.as_posix())
 
-from web_ui.example_app import WebUiExampleConfig, WebUiStyleExampleApp
-
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run a web-ui style py-twins example session")
+    parser = argparse.ArgumentParser(
+        description="Run a web-ui style py-twins example session")
     parser.add_argument("--cwd", default=ROOT.as_posix())
     parser.add_argument("--session-dir")
     parser.add_argument("--prompt", default="Reply with exactly OK.")
@@ -31,7 +31,8 @@ def main(argv: list[str] | None = None) -> int:
         with_tools=not args.no_tools,
     )
     if not config.api_key:
-        print(json.dumps({"ok": False, "error": "Missing env: LLM_API_KEY"}, ensure_ascii=False, indent=2))
+        print(json.dumps(
+            {"ok": False, "error": "Missing env: LLM_API_KEY"}, ensure_ascii=False, indent=2))
         return 1
 
     app = WebUiStyleExampleApp.create(config)

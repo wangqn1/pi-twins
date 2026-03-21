@@ -10,6 +10,7 @@ class CodingAgentArgs:
     mode: str = "text"
     print_mode: bool = False
     cwd: str = field(default_factory=lambda: Path.cwd().as_posix())
+    workspace: str | None = None
     agent_dir: str | None = None
     provider: str | None = None
     model: str | None = None
@@ -33,11 +34,12 @@ class CodingAgentArgs:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="pi-mono-py coding-agent", add_help=True)
+    parser = argparse.ArgumentParser(prog="py-twins coding-agent", add_help=True)
     parser.add_argument("messages", nargs="*", help="Prompt messages")
     parser.add_argument("--mode", choices=("text", "json", "rpc"), default="text")
     parser.add_argument("--print", "-p", dest="print_mode", action="store_true", help="Run one-shot print mode")
     parser.add_argument("--cwd", default=Path.cwd().as_posix())
+    parser.add_argument("--workspace")
     parser.add_argument("--agent-dir")
     parser.add_argument("--provider")
     parser.add_argument("--model")
@@ -67,6 +69,7 @@ def parse_args(argv: list[str] | None = None) -> CodingAgentArgs:
         mode=namespace.mode,
         print_mode=bool(namespace.print_mode),
         cwd=namespace.cwd,
+        workspace=namespace.workspace,
         agent_dir=namespace.agent_dir,
         provider=namespace.provider,
         model=namespace.model,

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 
 import pytest
 
-from coding_agent.core.tools import ToolExecutionError, ToolRegistry
+from coding_agent.core.tools import ScreenshotTool, ToolExecutionError, ToolRegistry
 
 
 def test_write_read_edit_roundtrip(tmp_path: Path) -> None:
@@ -53,3 +54,23 @@ def test_find_ls_grep(tmp_path: Path) -> None:
 
     grep_result = registry.run("grep", {"path": "src", "pattern": "hello"})
     assert "hello" in grep_result.content[0]["text"]
+
+
+def test_screenshot_tool_returns_multimodal_content(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    monkeypatch.setattr("coding_agent.core.tools.screenshot.platform.system", lambda: "Darwin")
+
+    def fake_capture(args: list[str]) -> None:
+        calls.append(args)
+        Path(args[-1]).write_bytes(b"\x89PNG\r\n\x1a\nfake-image")
+
+    tool = ScreenshotTool(str(tmp_path), capture_runner=fake_capture)
+    result = tool.run(path="shots/browser.png", interactive=True)
+
+    assert calls == [["screencapture", "-x", "-i", str(tmp_path / "shots" / "browser.png")]]
+    assert "Captured screenshot" in result.content[0]["text"]
+    assert result.content[1]["type"] == "image"
+    assert result.content[1]["mimeType"] == "image/png"
+    assert base64.b64decode(result.content[1]["data"]).startswith(b"\x89PNG")
+    assert result.details == {"path": str(tmp_path / "shots" / "browser.png"), "interactive": True}

@@ -24,6 +24,12 @@ def _role(message: object) -> str | None:
     return getattr(message, "role", None)
 
 
+def _content(message: object) -> object:
+    if isinstance(message, dict):
+        return message.get("content")
+    return getattr(message, "content", None)
+
+
 def test_agent_tool_loop_matches_core_behavior(tmp_path: Path) -> None:
     def responder(model, context, options):  # noqa: ANN001
         del options
@@ -183,6 +189,192 @@ def test_agent_abort_and_wait_for_idle() -> None:
     assert not thread.is_alive()
     assert agent.state.is_streaming is False
     assert getattr(agent.state.messages[-1], "stop_reason", None) == "aborted"
+
+
+def test_agent_injects_tool_generated_images_as_multimodal_user_context() -> None:
+    class ImageTool:
+        name = "screenshot"
+        label = "screenshot"
+        description = "captures a screenshot"
+        parameters = {
+            "type": "object",
+            "properties": {"path": {"type": "string"}},
+            "required": ["path"],
+        }
+
+        def execute(self, tool_call_id, params, signal=None, on_update=None):  # noqa: ANN001
+            del tool_call_id, signal, on_update
+            return AgentToolResult(
+                content=[
+                    text_block(f"Captured screenshot to {params['path']} [image/png]"),
+                    {"type": "image", "data": "ZmFrZS1pbWFnZQ==", "mimeType": "image/png"},
+                ],
+                details={"path": params["path"]},
+            )
+
+    seen_multimodal_context = False
+
+    def responder(model, context, options):  # noqa: ANN001
+        nonlocal seen_multimodal_context
+        del options
+        has_tool_result = any(_role(message) == "toolResult" for message in context.messages)
+        if not has_tool_result:
+            return AssistantMessage(
+                content=[tool_call_block("call_screenshot_1", "screenshot", {"path": "/tmp/browser.png"})],
+                api=model.api,
+                provider=model.provider,
+                model=model.id,
+                usage=Usage(),
+                stop_reason="toolUse",
+                timestamp=int(time() * 1000),
+            )
+
+        for message in context.messages:
+            if _role(message) != "user":
+                continue
+            content = _content(message)
+            if not isinstance(content, list):
+                continue
+            if any(isinstance(block, dict) and block.get("type") == "image" for block in content):
+                seen_multimodal_context = True
+                break
+
+        assert seen_multimodal_context is True
+        return AssistantMessage(
+            content=[text_block("analyzed screenshot")],
+            api=model.api,
+            provider=model.provider,
+            model=model.id,
+            usage=Usage(),
+            stop_reason="stop",
+            timestamp=int(time() * 1000),
+        )
+
+    agent = Agent(backend=ScriptedBackend(responder))
+    agent.set_tools([ImageTool()])
+
+    agent.prompt("take screenshot and analyze it")
+
+    assert seen_multimodal_context is True
+    multimodal_messages = [
+        message
+        for message in agent.state.messages
+        if _role(message) == "user"
+        and isinstance(_content(message), list)
+        and any(isinstance(block, dict) and block.get("type") == "image" for block in _content(message))
+    ]
+    assert multimodal_messages
+
+
+def test_agent_stops_at_turn_limit_and_asks_to_continue() -> None:
+    calls = {"count": 0}
+
+    def responder(model, context, options):  # noqa: ANN001
+        del options
+        calls["count"] += 1
+        tools_available = bool(context.tools)
+        user_texts: list[str] = []
+        for message in context.messages:
+            if _role(message) != "user":
+                continue
+            content = _content(message)
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        user_texts.append(str(block.get("text", "")))
+        if not tools_available and any("maximum turn limit" in text for text in user_texts):
+            return AssistantMessage(
+                content=[text_block("I reached the turn limit after making partial progress. Do you want me to continue?")],
+                api=model.api,
+                provider=model.provider,
+                model=model.id,
+                usage=Usage(),
+                stop_reason="stop",
+                timestamp=int(time() * 1000),
+            )
+        return AssistantMessage(
+            content=[tool_call_block(f"call_loop_{calls['count']}", "noop", {})],
+            api=model.api,
+            provider=model.provider,
+            model=model.id,
+            usage=Usage(),
+            stop_reason="toolUse",
+            timestamp=int(time() * 1000),
+        )
+
+    class NoopTool:
+        name = "noop"
+        label = "noop"
+        description = "does nothing"
+        parameters = {"type": "object", "properties": {}, "required": []}
+
+        def execute(self, tool_call_id, params, signal=None, on_update=None):  # noqa: ANN001
+            del tool_call_id, params, signal, on_update
+            return AgentToolResult(content=[text_block("ok")], details={})
+
+    agent = Agent(backend=ScriptedBackend(responder), max_turns=2, max_tool_calls=10)
+    agent.set_tools([NoopTool()])
+
+    agent.prompt("keep going")
+
+    assistant_messages = [message for message in agent.state.messages if _role(message) == "assistant"]
+    assert assistant_messages[-1].content[0]["text"].endswith("Do you want me to continue?")
+
+
+def test_agent_stops_at_tool_limit_and_asks_to_continue() -> None:
+    executed_tool_calls = {"count": 0}
+
+    class NoopTool:
+        name = "noop"
+        label = "noop"
+        description = "does nothing"
+        parameters = {"type": "object", "properties": {}, "required": []}
+
+        def execute(self, tool_call_id, params, signal=None, on_update=None):  # noqa: ANN001
+            del tool_call_id, params, signal, on_update
+            executed_tool_calls["count"] += 1
+            return AgentToolResult(content=[text_block("ok")], details={})
+
+    def responder(model, context, options):  # noqa: ANN001
+        del options
+        tools_available = bool(context.tools)
+        user_texts: list[str] = []
+        for message in context.messages:
+            if _role(message) != "user":
+                continue
+            content = _content(message)
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        user_texts.append(str(block.get("text", "")))
+        if not tools_available and any("maximum tool call limit" in text for text in user_texts):
+            return AssistantMessage(
+                content=[text_block("I hit the tool call limit. I can continue from here if you want.")],
+                api=model.api,
+                provider=model.provider,
+                model=model.id,
+                usage=Usage(),
+                stop_reason="stop",
+                timestamp=int(time() * 1000),
+            )
+        return AssistantMessage(
+            content=[tool_call_block(f"call_tool_{len(context.messages)}", "noop", {})],
+            api=model.api,
+            provider=model.provider,
+            model=model.id,
+            usage=Usage(),
+            stop_reason="toolUse",
+            timestamp=int(time() * 1000),
+        )
+
+    agent = Agent(backend=ScriptedBackend(responder), max_turns=10, max_tool_calls=1)
+    agent.set_tools([NoopTool()])
+
+    agent.prompt("use the tool")
+
+    assert executed_tool_calls["count"] == 1
+    assistant_messages = [message for message in agent.state.messages if _role(message) == "assistant"]
+    assert assistant_messages[-1].content[0]["text"] == "I hit the tool call limit. I can continue from here if you want."
 
 
 def test_agent_validates_tool_arguments() -> None:

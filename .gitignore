@@ -9,3 +9,5 @@ __pycache__/
 .pi/.db.yaml
 src/web_ui/frontend/dist/
 tools/pi-mono/*
+tmp
+logs/*

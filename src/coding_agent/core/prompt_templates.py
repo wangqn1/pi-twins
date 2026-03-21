@@ -5,6 +5,8 @@ from pathlib import Path
 import os
 from typing import Any
 
+from .workspace import resolve_workspace_dir
+
 CONFIG_DIR_NAME = ".pi"
 
 
@@ -81,12 +83,14 @@ def load_prompt_templates(
     include_defaults: bool = True,
 ) -> list[PromptTemplate]:
     resolved_cwd = Path(cwd or Path.cwd())
-    resolved_agent_dir = Path(agent_dir or _get_agent_dir())
+    resolved_agent_dir = Path(agent_dir or resolve_workspace_dir(resolved_cwd.as_posix()))
     templates: list[PromptTemplate] = []
 
     if include_defaults:
         templates.extend(_load_templates_from_dir(resolved_agent_dir / "prompts", "user", "(user)"))
-        templates.extend(_load_templates_from_dir(resolved_cwd / CONFIG_DIR_NAME / "prompts", "project", "(project)"))
+        project_prompts_dir = resolved_cwd / CONFIG_DIR_NAME / "prompts"
+        if project_prompts_dir.resolve() != (resolved_agent_dir / "prompts").resolve():
+            templates.extend(_load_templates_from_dir(project_prompts_dir, "project", "(project)"))
 
     for raw_path in prompt_paths or []:
         resolved = _resolve_path(raw_path, resolved_cwd)
@@ -176,8 +180,3 @@ def _resolve_path(raw_path: str, cwd: Path) -> Path:
 
 def _build_path_label(path: Path) -> str:
     return f"(path:{path.stem or 'path'})"
-
-
-def _get_agent_dir() -> str:
-    base = Path(os.environ.get("PI_CONFIG_DIR") or (Path.home() / ".pi"))
-    return (base / "agent").as_posix()

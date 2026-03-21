@@ -95,6 +95,8 @@ class Agent:
         thinking_budgets: dict[str, int] | None = None,
         transport: str = "sse",
         max_retry_delay_ms: int | None = None,
+        max_turns: int | None = 12,
+        max_tool_calls: int | None = 32,
         options: SimpleStreamOptions | None = None,
     ) -> None:
         default_model = Model(provider="mock", id="echo")
@@ -116,6 +118,8 @@ class Agent:
         self._thinking_budgets = dict(thinking_budgets or {})
         self._transport = transport
         self._max_retry_delay_ms = max_retry_delay_ms
+        self._max_turns = max_turns
+        self._max_tool_calls = max_tool_calls
         self._before_tool_call: BeforeToolCall | None = None
         self._after_tool_call: AfterToolCall | None = None
         self._options = options or SimpleStreamOptions()
@@ -183,6 +187,38 @@ class Agent:
     @maxRetryDelayMs.setter
     def maxRetryDelayMs(self, value: int | None) -> None:
         self.max_retry_delay_ms = value
+
+    @property
+    def max_turns(self) -> int | None:
+        return self._max_turns
+
+    @max_turns.setter
+    def max_turns(self, value: int | None) -> None:
+        self._max_turns = value
+
+    @property
+    def maxTurns(self) -> int | None:
+        return self.max_turns
+
+    @maxTurns.setter
+    def maxTurns(self, value: int | None) -> None:
+        self.max_turns = value
+
+    @property
+    def max_tool_calls(self) -> int | None:
+        return self._max_tool_calls
+
+    @max_tool_calls.setter
+    def max_tool_calls(self, value: int | None) -> None:
+        self._max_tool_calls = value
+
+    @property
+    def maxToolCalls(self) -> int | None:
+        return self.max_tool_calls
+
+    @maxToolCalls.setter
+    def maxToolCalls(self, value: int | None) -> None:
+        self.max_tool_calls = value
 
     @property
     def streamFn(self) -> StreamFn:
@@ -392,6 +428,8 @@ class Agent:
             before_tool_call=self._before_tool_call,
             after_tool_call=self._after_tool_call,
             options=options,
+            max_turns=self._max_turns,
+            max_tool_calls=self._max_tool_calls,
         )
 
     def prompt(

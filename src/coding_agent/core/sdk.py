@@ -17,6 +17,7 @@ from .resource_loader import DefaultResourceLoader, DefaultResourceLoaderOptions
 from .session_manager import SessionManager
 from .settings_manager import SettingsManager
 from .tools import create_coding_tools
+from .workspace import resolve_workspace_dir
 
 
 @dataclass
@@ -49,7 +50,7 @@ class CreateAgentSessionOptions:
 def create_agent_session(options: CreateAgentSessionOptions | None = None) -> AgentSession:
     opts = options or CreateAgentSessionOptions()
     cwd = opts.cwd or Path.cwd().as_posix()
-    agent_dir = opts.agent_dir or _get_agent_dir()
+    agent_dir = opts.agent_dir or resolve_workspace_dir(cwd)
 
     model_registry = opts.model_registry or ModelRegistry()
     model = opts.model or model_registry.get_default_model()
@@ -132,10 +133,3 @@ def create_agent_session(options: CreateAgentSessionOptions | None = None) -> Ag
     if runner is not None:
         runner.bind_session(session)
     return session
-
-
-def _get_agent_dir() -> str:
-    import os
-
-    base = Path(os.environ.get("PI_CONFIG_DIR") or (Path.home() / ".pi"))
-    return (base / "agent").as_posix()

@@ -15,6 +15,7 @@ from .core.resource_loader import DefaultResourceLoader, DefaultResourceLoaderOp
 from .core.sdk import CreateAgentSessionOptions, create_agent_session
 from .core.session_manager import SessionManager
 from .core.settings_manager import SettingsManager
+from .core.workspace import resolve_session_dir, resolve_workspace_dir
 from .modes.interactive.interactive_mode import run_interactive_mode
 from .modes.print_mode import run_print_mode
 from .modes.rpc.rpc_mode import run_rpc_mode
@@ -44,7 +45,9 @@ def coding_agent_main(
         return package_handled
 
     args = parse_args(raw_argv)
-    settings_manager = SettingsManager.create(Path(args.cwd).resolve().as_posix(), args.agent_dir or _get_agent_dir())
+    resolved_cwd = Path(args.cwd).resolve().as_posix()
+    resolved_agent_dir = _resolve_agent_dir(resolved_cwd, args)
+    settings_manager = SettingsManager.create(resolved_cwd, resolved_agent_dir)
 
     if args.list_models is not None:
         search_pattern = args.list_models if isinstance(args.list_models, str) else None
@@ -53,8 +56,8 @@ def coding_agent_main(
 
     if args.resume and not args.session:
         selected = select_session_path(
-            cwd=Path(args.cwd).resolve().as_posix(),
-            session_dir=args.session_dir,
+            cwd=resolved_cwd,
+            session_dir=resolve_session_dir(resolved_cwd, args.session_dir, resolved_agent_dir),
             stdin=in_stream,
             stdout=out_stream,
             stderr=err_stream,
@@ -100,8 +103,8 @@ def coding_agent_main(
 
 def _create_session(args: CodingAgentArgs, *, settings_manager: SettingsManager | None = None):
     cwd = Path(args.cwd).resolve().as_posix()
-    agent_dir = args.agent_dir
-    settings_manager = settings_manager or SettingsManager.create(cwd, agent_dir or _get_agent_dir())
+    agent_dir = _resolve_agent_dir(cwd, args)
+    settings_manager = settings_manager or SettingsManager.create(cwd, agent_dir)
     resource_loader = DefaultResourceLoader(
         DefaultResourceLoaderOptions(
             cwd=cwd,
@@ -137,7 +140,7 @@ def _create_session(args: CodingAgentArgs, *, settings_manager: SettingsManager 
 def _create_session_manager(cwd: str, args: CodingAgentArgs) -> SessionManager:
     if args.no_session:
         return SessionManager.in_memory(cwd)
-    manager = SessionManager.continue_recent(cwd, session_dir=args.session_dir)
+    manager = SessionManager.continue_recent(cwd, session_dir=resolve_session_dir(cwd, args.session_dir, _resolve_agent_dir(cwd, args)))
     if args.session:
         manager.set_session_file(args.session)
     return manager
@@ -187,31 +190,41 @@ def _parse_model_reference(reference: str, default_provider: str | None) -> Mode
     return Model(provider=provider, id=model_id, api="mock")
 
 
-def _get_agent_dir() -> str:
-    import os
-
-    base = Path(os.environ.get("PI_CONFIG_DIR") or (Path.home() / ".pi"))
-    return (base / "agent").as_posix()
-
-
 def _extract_global_cli_context(argv: list[str]) -> tuple[str, str, list[str]]:
     cwd = Path.cwd().resolve().as_posix()
-    agent_dir = _get_agent_dir()
+    workspace: str | None = None
+    agent_dir: str | None = None
     remaining: list[str] = []
     index = 0
     while index < len(argv):
         value = argv[index]
         if value == "--cwd" and index + 1 < len(argv):
-            cwd = Path(argv[index + 1]).resolve().as_posix()
+            cwd = argv[index + 1]
+            index += 2
+            continue
+        if value == "--workspace" and index + 1 < len(argv):
+            workspace = argv[index + 1]
             index += 2
             continue
         if value == "--agent-dir" and index + 1 < len(argv):
-            agent_dir = Path(argv[index + 1]).resolve().as_posix()
+            agent_dir = argv[index + 1]
             index += 2
             continue
         remaining.append(value)
         index += 1
-    return cwd, agent_dir, remaining
+    resolved_cwd = Path(cwd).resolve().as_posix()
+    resolved_agent_dir = (
+        Path(agent_dir).expanduser().resolve().as_posix()
+        if agent_dir
+        else resolve_workspace_dir(resolved_cwd, workspace)
+    )
+    return resolved_cwd, resolved_agent_dir, remaining
+
+
+def _resolve_agent_dir(cwd: str, args: CodingAgentArgs) -> str:
+    if args.agent_dir:
+        return Path(args.agent_dir).expanduser().resolve().as_posix()
+    return resolve_workspace_dir(cwd, args.workspace)
 
 
 def _handle_package_command(

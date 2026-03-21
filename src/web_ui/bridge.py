@@ -40,6 +40,7 @@ def _tool_descriptor(tool: Any) -> dict[str, Any]:
 @dataclass
 class WebUiBridgeConfig:
     cwd: str
+    workspace: str | None = None
     session_dir: str | None = None
     resume_session: bool = False
     agent_dir: str | None = None
@@ -54,11 +55,13 @@ class WebUiBridgeConfig:
     backend: Any = None
     no_skills: bool = False
     additional_skill_paths: list[str] | None = None
+    llm_request_log_path: str | None = None
 
     @classmethod
     def from_example_config(cls, config: WebUiExampleConfig) -> "WebUiBridgeConfig":
         return cls(
             cwd=config.cwd,
+            workspace=config.workspace,
             session_dir=config.session_dir,
             resume_session=False,
             agent_dir=config.agent_dir,
@@ -73,6 +76,7 @@ class WebUiBridgeConfig:
             backend=config.backend,
             no_skills=config.no_skills,
             additional_skill_paths=list(config.additional_skill_paths or []),
+            llm_request_log_path=config.llm_request_log_path,
         )
 
 
@@ -82,6 +86,7 @@ class WebUiBridgeBackend:
         self.session = _build_agent_session(
             WebUiExampleConfig(
                 cwd=config.cwd,
+                workspace=config.workspace,
                 session_dir=config.session_dir,
                 agent_dir=config.agent_dir,
                 provider=config.provider,
@@ -95,6 +100,7 @@ class WebUiBridgeBackend:
                 backend=config.backend,
                 no_skills=config.no_skills,
                 additional_skill_paths=list(config.additional_skill_paths or []),
+                llm_request_log_path=config.llm_request_log_path,
             ),
             session_manager=_create_session_manager(config),
         )

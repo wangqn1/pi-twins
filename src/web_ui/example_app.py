@@ -15,6 +15,9 @@ from coding_agent.core.resource_loader import DefaultResourceLoader, DefaultReso
 from coding_agent.core.session_manager import SessionManager
 from coding_agent.core.settings_manager import SettingsManager
 from coding_agent.core.tools import create_coding_tools
+from coding_agent.core.workspace import resolve_session_dir, resolve_workspace_dir
+
+from .request_logging import WebUiLLMRequestLogger
 
 DEFAULT_EXAMPLE_BASE_URL = "http://192.168.64.22:3001/v1"
 DEFAULT_EXAMPLE_MODEL = "qwen3.5-122b-vl"
@@ -55,6 +58,7 @@ def _should_persist(messages: list[Any]) -> bool:
 @dataclass
 class WebUiExampleConfig:
     cwd: str
+    workspace: str | None = None
     session_dir: str | None = None
     agent_dir: str | None = None
     provider: str = "openai"
@@ -70,6 +74,7 @@ class WebUiExampleConfig:
     no_skills: bool = False
     no_prompt_templates: bool = True
     additional_skill_paths: list[str] | None = None
+    llm_request_log_path: str | None = None
 
     @classmethod
     def from_env(
@@ -82,6 +87,7 @@ class WebUiExampleConfig:
     ) -> "WebUiExampleConfig":
         return cls(
             cwd=cwd,
+            workspace=None,
             session_dir=session_dir,
             base_url=os.environ.get("LLM_BASE_URL", DEFAULT_EXAMPLE_BASE_URL),
             api_key=os.environ.get("LLM_API_KEY"),
@@ -99,12 +105,18 @@ class WebUiStyleExampleApp:
 
     @classmethod
     def create(cls, config: WebUiExampleConfig) -> "WebUiStyleExampleApp":
-        session_manager = SessionManager.create(config.cwd, session_dir=config.session_dir)
+        session_manager = SessionManager.create(
+            config.cwd,
+            session_dir=resolve_session_dir(config.cwd, config.session_dir, _resolve_agent_dir(config)),
+        )
         return cls(config, _build_agent_session(config, session_manager))
 
     @classmethod
     def open(cls, config: WebUiExampleConfig, session_file: str) -> "WebUiStyleExampleApp":
-        session_manager = SessionManager.open(session_file, session_dir=config.session_dir)
+        session_manager = SessionManager.open(
+            session_file,
+            session_dir=resolve_session_dir(config.cwd, config.session_dir, _resolve_agent_dir(config)),
+        )
         return cls(config, _build_agent_session(config, session_manager))
 
     def send(self, prompt: str) -> str | None:
@@ -136,8 +148,14 @@ class WebUiStyleExampleApp:
         }
 
 
+def _resolve_agent_dir(config: WebUiExampleConfig) -> str:
+    if config.agent_dir:
+        return Path(config.agent_dir).expanduser().resolve().as_posix()
+    return resolve_workspace_dir(config.cwd, config.workspace)
+
+
 def _build_agent_session(config: WebUiExampleConfig, session_manager: SessionManager) -> AgentSession:
-    agent_dir = config.agent_dir or str(Path(config.cwd) / ".pi" / "agent")
+    agent_dir = _resolve_agent_dir(config)
     settings_manager = SettingsManager(cwd=config.cwd, agent_dir=agent_dir, global_settings={}, project_settings={})
     resource_loader = DefaultResourceLoader(
         DefaultResourceLoaderOptions(
@@ -167,6 +185,7 @@ def _build_agent_session(config: WebUiExampleConfig, session_manager: SessionMan
     model_registry.register_model(model)
 
     tools = create_coding_tools(config.cwd) if config.with_tools else []
+    request_logger = WebUiLLMRequestLogger(cwd=config.cwd, output_path=config.llm_request_log_path)
     agent_kwargs: dict[str, Any] = {
         "initial_state": AgentState(
             system_prompt=config.system_prompt,
@@ -180,6 +199,7 @@ def _build_agent_session(config: WebUiExampleConfig, session_manager: SessionMan
         "transport": settings_manager.get_transport(),
         "thinking_budgets": settings_manager.get_thinking_budgets(),
         "max_retry_delay_ms": settings_manager.get_retry_settings().max_delay_ms,
+        "on_payload": request_logger.log_payload,
     }
     if config.backend is not None:
         agent_kwargs["backend"] = config.backend

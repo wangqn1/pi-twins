@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .compaction import CompactionSettings, RetrySettings
+from .workspace import resolve_workspace_dir
 
 CONFIG_DIR_NAME = ".pi"
 
@@ -55,9 +56,15 @@ class SettingsManager:
     @classmethod
     def create(cls, cwd: str | None = None, agent_dir: str | None = None) -> SettingsManager:
         resolved_cwd = Path(cwd or Path.cwd()).as_posix()
-        resolved_agent_dir = agent_dir or _get_agent_dir()
-        global_settings, global_error = _load_settings(Path(resolved_agent_dir) / "settings.json")
-        project_settings, project_error = _load_settings(Path(resolved_cwd) / CONFIG_DIR_NAME / "settings.json")
+        resolved_agent_dir = agent_dir or resolve_workspace_dir(resolved_cwd)
+        global_settings_path = Path(resolved_agent_dir) / "settings.json"
+        project_settings_path = Path(resolved_cwd) / CONFIG_DIR_NAME / "settings.json"
+        global_settings, global_error = _load_settings(global_settings_path)
+        if global_settings_path.resolve() == project_settings_path.resolve():
+            project_settings = dict(global_settings)
+            project_error = global_error
+        else:
+            project_settings, project_error = _load_settings(project_settings_path)
         errors: list[SettingsError] = []
         if global_error is not None:
             errors.append(SettingsError(scope="global", error=global_error))
@@ -66,8 +73,8 @@ class SettingsManager:
         return cls(
             cwd=resolved_cwd,
             agent_dir=resolved_agent_dir,
-            global_settings_path=(Path(resolved_agent_dir) / "settings.json").as_posix(),
-            project_settings_path=(Path(resolved_cwd) / CONFIG_DIR_NAME / "settings.json").as_posix(),
+            global_settings_path=global_settings_path.as_posix(),
+            project_settings_path=project_settings_path.as_posix(),
             global_settings=global_settings,
             project_settings=project_settings,
             errors=errors,
@@ -81,7 +88,7 @@ class SettingsManager:
     ) -> SettingsManager:
         return cls(
             cwd=Path.cwd().as_posix(),
-            agent_dir=_get_agent_dir(),
+            agent_dir=resolve_workspace_dir(),
             global_settings=global_settings,
             project_settings=project_settings,
         )
@@ -318,8 +325,3 @@ def _migrate_settings(settings: dict[str, Any]) -> dict[str, Any]:
         else:
             result.pop("skills", None)
     return result
-
-
-def _get_agent_dir() -> str:
-    base = Path(os.environ.get("PI_CONFIG_DIR") or (Path.home() / ".pi"))
-    return (base / "agent").as_posix()

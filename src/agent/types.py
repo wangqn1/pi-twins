@@ -93,6 +93,8 @@ class AgentLoopConfig:
     before_tool_call: BeforeToolCall | None = None
     after_tool_call: AfterToolCall | None = None
     options: SimpleStreamOptions | None = None
+    max_turns: int | None = None
+    max_tool_calls: int | None = None
 
 
 @dataclass

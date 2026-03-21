@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from .workspace import resolve_workspace_dir
+
 CONFIG_DIR_NAME = ".pi"
 MAX_NAME_LENGTH = 64
 MAX_DESCRIPTION_LENGTH = 1024
@@ -28,7 +30,7 @@ def load_skills(
     include_defaults: bool = True,
 ) -> dict[str, Any]:
     resolved_cwd = Path(cwd or Path.cwd()).resolve()
-    resolved_agent_dir = Path(agent_dir or _get_agent_dir()).resolve()
+    resolved_agent_dir = Path(agent_dir or resolve_workspace_dir(resolved_cwd.as_posix())).resolve()
     skills_by_name: dict[str, Skill] = {}
     real_paths: set[str] = set()
     diagnostics: list[dict[str, Any]] = []
@@ -242,8 +244,3 @@ def _escape_xml(value: str) -> str:
         .replace('"', "&quot;")
         .replace("'", "&apos;")
     )
-
-
-def _get_agent_dir() -> str:
-    base = Path(os.environ.get("PI_CONFIG_DIR") or (Path.home() / ".pi"))
-    return (base / "agent").as_posix()

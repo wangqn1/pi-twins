@@ -27,6 +27,7 @@ from ai import (
     stream_openai_completions,
     text_block,
     tool_call_block,
+    ToolResultMessage,
 )
 from coding_agent.core.messages import convert_to_llm
 
@@ -259,6 +260,60 @@ def test_anthropic_provider_payload_supports_multimodal_user_content() -> None:
     assert user_payload["content"][1]["type"] == "image"
     assert user_payload["content"][1]["source"]["type"] == "base64"
     assert user_payload["content"][1]["source"]["media_type"] == "image/png"
+    assert result.content[0]["text"] == "seen"
+
+
+def test_anthropic_provider_payload_supports_multimodal_tool_results() -> None:
+    reset_api_providers()
+    captured: dict[str, Any] = {}
+
+    def fake_post(url: str, headers: dict[str, str], payload: dict[str, Any]) -> dict[str, Any]:
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["payload"] = payload
+        return {
+            "content": [{"type": "text", "text": "seen"}],
+            "usage": {"input_tokens": 8, "output_tokens": 6},
+            "stop_reason": "end_turn",
+        }
+
+    model = Model(provider="anthropic", id="claude-test", api="anthropic-messages")
+    context = LLMContext(
+        system_prompt="",
+        messages=[
+            AssistantMessage(
+                content=[tool_call_block("call_1", "screenshot", {"path": "/tmp/browser.png"})],
+                api=model.api,
+                provider=model.provider,
+                model=model.id,
+                usage=Usage(),
+                stop_reason="toolUse",
+                timestamp=1,
+            ),
+            ToolResultMessage(
+                tool_call_id="call_1",
+                tool_name="screenshot",
+                content=[
+                    text_block("Captured screenshot to /tmp/browser.png [image/png]"),
+                    {"type": "image", "data": "ZmFrZS1pbWFnZQ==", "mimeType": "image/png"},
+                ],
+                is_error=False,
+                timestamp=2,
+            ),
+        ],
+        tools=[],
+    )
+    result = complete(model, context, AnthropicOptions(api_key="anthropic-key", http_post=fake_post))
+
+    tool_result_payload = captured["payload"]["messages"][1]
+    assert tool_result_payload["role"] == "user"
+    tool_result_block = tool_result_payload["content"][0]
+    assert tool_result_block["type"] == "tool_result"
+    assert tool_result_block["tool_use_id"] == "call_1"
+    assert tool_result_block["content"][0] == {"type": "text", "text": "Captured screenshot to /tmp/browser.png [image/png]"}
+    assert tool_result_block["content"][1]["type"] == "image"
+    assert tool_result_block["content"][1]["source"]["type"] == "base64"
+    assert tool_result_block["content"][1]["source"]["media_type"] == "image/png"
     assert result.content[0]["text"] == "seen"
 
 

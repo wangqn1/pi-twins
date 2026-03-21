@@ -12,6 +12,7 @@ from .find import FindTool
 from .grep import GrepTool
 from .ls import LsTool
 from .read import ReadTool
+from .screenshot import ScreenshotTool
 from .types import ToolExecutionError, ToolResult
 from .write import WriteTool
 
@@ -31,6 +32,7 @@ class ToolRegistry:
             "grep": GrepTool(self.cwd).run_from_dict,
             "find": FindTool(self.cwd).run_from_dict,
             "ls": LsTool(self.cwd).run_from_dict,
+            "screenshot": ScreenshotTool(self.cwd).run_from_dict,
         }
 
     def list_tools(self) -> list[str]:
@@ -48,6 +50,7 @@ class RegistryToolAdapter:
     name: str
     label: str
     description: str
+    parameters: dict[str, Any] | None = None
 
     def execute(
         self,
@@ -71,6 +74,20 @@ def create_coding_tools(cwd: str) -> list[RegistryToolAdapter]:
         "grep": "Search content in files.",
         "find": "Find paths by glob.",
         "ls": "List directory entries.",
+        "screenshot": "Capture a macOS screenshot and return it as an image for multimodal analysis.",
+    }
+    parameters = {
+        "screenshot": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Output path for the captured screenshot."},
+                "interactive": {
+                    "type": "boolean",
+                    "description": "Whether to interactively select a region or window.",
+                },
+            },
+            "required": ["path"],
+        }
     }
     return [
         RegistryToolAdapter(
@@ -78,6 +95,7 @@ def create_coding_tools(cwd: str) -> list[RegistryToolAdapter]:
             name=name,
             label=name,
             description=descriptions.get(name, f"{name} tool"),
+            parameters=parameters.get(name),
         )
         for name in registry.list_tools()
     ]
@@ -91,6 +109,7 @@ __all__ = [
     "LsTool",
     "ReadTool",
     "RegistryToolAdapter",
+    "ScreenshotTool",
     "ToolExecutionError",
     "ToolRegistry",
     "ToolResult",

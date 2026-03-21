@@ -169,6 +169,13 @@ def _serialize_anthropic_user_content(content: Any) -> str | list[dict[str, Any]
     return serialized
 
 
+def _serialize_anthropic_tool_result_content(content: Any) -> str | list[dict[str, Any]]:
+    serialized = _serialize_anthropic_user_content(content)
+    if isinstance(serialized, list):
+        return serialized
+    return str(serialized)
+
+
 def _serialize_messages(context: LLMContext) -> list[dict[str, Any]]:
     serialized: list[dict[str, Any]] = []
     for message in context.messages:
@@ -210,7 +217,7 @@ def _serialize_messages(context: LLMContext) -> list[dict[str, Any]]:
                         {
                             "type": "tool_result",
                             "tool_use_id": str(tool_call_id),
-                            "content": _text_from_content(content),
+                            "content": _serialize_anthropic_tool_result_content(content),
                             "is_error": is_error,
                         }
                     ],

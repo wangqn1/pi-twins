@@ -8,6 +8,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+from ..workspace import resolve_workspace_dir
 from .types import Extension
 
 CONFIG_DIR_NAME = ".pi"
@@ -30,7 +31,7 @@ def load_extensions(
     include_defaults: bool = True,
 ) -> dict[str, Any]:
     resolved_cwd = Path(cwd or Path.cwd()).resolve()
-    resolved_agent_dir = Path(agent_dir or _get_agent_dir()).resolve()
+    resolved_agent_dir = Path(agent_dir or resolve_workspace_dir(resolved_cwd.as_posix())).resolve()
     runtime = create_extension_runtime()
     extensions: list[Extension] = []
     errors: list[str] = []
@@ -134,8 +135,3 @@ def _resolve_path(raw_path: str, cwd: Path) -> Path:
     if path.is_absolute():
         return path
     return (cwd / path).resolve()
-
-
-def _get_agent_dir() -> str:
-    base = Path(os.environ.get("PI_CONFIG_DIR") or (Path.home() / ".pi"))
-    return (base / "agent").as_posix()

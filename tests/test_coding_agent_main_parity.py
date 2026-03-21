@@ -28,6 +28,22 @@ def test_coding_agent_main_text_mode_outputs_last_assistant_message(tmp_path) ->
     assert "Echo: hello world" in stdout.getvalue()
 
 
+def test_coding_agent_main_defaults_workspace_to_project_dot_pi(tmp_path) -> None:  # noqa: ANN001
+    stdout = StringIO()
+    stderr = StringIO()
+
+    code = coding_agent_main(
+        ["--cwd", tmp_path.as_posix(), "-p", "hello workspace"],
+        stdout=stdout,
+        stderr=stderr,
+    )
+
+    assert code == 0
+    assert stderr.getvalue() == ""
+    assert (tmp_path / ".pi" / "sessions").exists()
+    assert "Echo: hello workspace" in stdout.getvalue()
+
+
 def test_coding_agent_main_list_models_outputs_table(tmp_path) -> None:  # noqa: ANN001
     stdout = StringIO()
 

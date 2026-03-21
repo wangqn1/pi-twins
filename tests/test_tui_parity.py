@@ -70,9 +70,9 @@ class _Label:
 def test_fuzzy_match_and_filter_rank_results() -> None:
     assert fuzzy_match("abc", "a_b_c").matches is True
     assert fuzzy_match("10x", "x10").matches is True
-    items = ["pods start", "mom start", "pods stop"]
+    items = ["project start", "web start", "project stop"]
     result = fuzzy_filter(items, "po st", lambda item: item)
-    assert result == ["pods start", "pods stop"]
+    assert result == ["project start", "project stop"]
 
 
 def test_extract_complete_sequences_handles_escape_and_plain_text() -> None:
