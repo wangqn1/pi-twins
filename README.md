@@ -165,6 +165,18 @@ py-twins web-ui \
   --model your-model
 ```
 
+也可以直接通过 Python 启动：
+
+```bash
+PYTHONPATH=src python -m cli web-ui \
+  --cwd /path/to/workspace \
+  --host 127.0.0.1 \
+  --port 8765 \
+  --base-url http://your-llm-endpoint/v1 \
+  --api-key your-api-key \
+  --model your-model
+```
+
 启动后访问：
 
 ```text

@@ -1,3 +1,9 @@
+# ===========================
+# Author: wqn
+# Email: wangqn@tellhow.com
+# Created: 20260320
+# ===========================
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -193,4 +199,3 @@ def truncate_tail(
         max_lines=max_lines,
         max_bytes=max_bytes,
     )
-

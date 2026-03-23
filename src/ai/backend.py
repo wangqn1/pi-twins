@@ -1,3 +1,9 @@
+# ===========================
+# Author: wqn
+# Email: wangqn@tellhow.com
+# Created: 20260320
+# ===========================
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -54,4 +60,3 @@ class ScriptedBackend:
 
     def complete(self, model: Model, context: LLMContext, options: CompleteOptions | None = None) -> AssistantMessage:
         return self._responder(model, context, options)
-

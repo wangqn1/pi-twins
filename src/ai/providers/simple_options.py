@@ -1,3 +1,9 @@
+# ===========================
+# Author: wqn
+# Email: wangqn@tellhow.com
+# Created: 20260320
+# ===========================
+
 from __future__ import annotations
 
 from ai.types import Model, SimpleStreamOptions, StreamOptions, ThinkingLevel

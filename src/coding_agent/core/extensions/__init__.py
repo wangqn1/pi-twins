@@ -1,3 +1,9 @@
+# ===========================
+# Author: wqn
+# Email: wangqn@tellhow.com
+# Created: 20260320
+# ===========================
+
 from .runner import ExtensionRunner
 from .loader import create_extension_runtime, load_extensions
 from .types import Extension, ExtensionAPI, ExtensionContext, RegisteredCommand, RegisteredTool, ToolDefinition, build_extension

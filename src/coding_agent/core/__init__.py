@@ -1,3 +1,9 @@
+# ===========================
+# Author: wqn
+# Email: wangqn@tellhow.com
+# Created: 20260320
+# ===========================
+
 from .agent_session import AgentSession, AgentSessionConfig, SessionStats
 from .auth_storage import ApiKeyCredential, AuthStorage
 from .compaction import (

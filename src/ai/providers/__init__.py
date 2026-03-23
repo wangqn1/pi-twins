@@ -1,3 +1,9 @@
+# ===========================
+# Author: wqn
+# Email: wangqn@tellhow.com
+# Created: 20260320
+# ===========================
+
 from .anthropic import AnthropicOptions, stream_anthropic, stream_simple_anthropic
 from .openai_completions import OpenAICompletionsOptions, stream_openai_completions, stream_simple_openai_completions
 from .register_builtins import register_built_in_api_providers, reset_api_providers

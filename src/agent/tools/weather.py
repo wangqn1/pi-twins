@@ -1,3 +1,9 @@
+# ===========================
+# Author: wqn
+# Email: wangqn@tellhow.com
+# Created: 20260320
+# ===========================
+
 """Weather query skill for fetching daily weather information."""
 
 from __future__ import annotations

@@ -1,3 +1,9 @@
+# ===========================
+# Author: wqn
+# Email: wangqn@tellhow.com
+# Created: 20260320
+# ===========================
+
 from .args import CodingAgentArgs, build_parser, parse_args
 from .list_models import format_token_count, render_models
 from .session_picker import select_session_path

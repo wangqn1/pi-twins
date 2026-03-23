@@ -1,3 +1,9 @@
+# ===========================
+# Author: wqn
+# Email: wangqn@tellhow.com
+# Created: 20260320
+# ===========================
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -15,4 +21,3 @@ class ToolResult:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-

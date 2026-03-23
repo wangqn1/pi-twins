@@ -1,3 +1,9 @@
+# ===========================
+# Author: wqn
+# Email: wangqn@tellhow.com
+# Created: 20260320
+# ===========================
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -29,4 +35,3 @@ class ModelRegistry:
 
     def get_default_model(self) -> Model:
         return self.models[0]
-

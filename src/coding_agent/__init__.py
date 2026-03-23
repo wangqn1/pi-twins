@@ -1,3 +1,9 @@
+# ===========================
+# Author: wqn
+# Email: wangqn@tellhow.com
+# Created: 20260320
+# ===========================
+
 from .cli import CodingAgentArgs, build_parser as build_coding_agent_parser, format_token_count, parse_args as parse_coding_agent_args, render_models, select_session_path
 from .core import (
     AgentSession,
